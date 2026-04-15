@@ -18,6 +18,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import questionary
+
 
 def load_config(config_path: str | Path) -> dict:
     config_path = Path(config_path).expanduser().resolve()
@@ -56,40 +58,52 @@ def get_duration_seconds(time_str: str) -> float:
         return float(time_str)
 
 
-def prompt_choice(
-    prompt_text: str, options: list[str], allow_empty: bool = True
-) -> int | None:
-    """Prompt user to select from numbered options."""
-    print(f"\n{prompt_text}")
-    for i, opt in enumerate(options, 1):
-        print(f"  [{i}] {opt}")
-
-    while True:
-        choice = input("> ").strip()
-        if choice == "" and allow_empty:
-            return None
-        try:
-            idx = int(choice)
-            if 1 <= idx <= len(options):
-                return idx
-            print(f"Enter 1-{len(options)}: ", end="")
-        except ValueError:
-            print(f"Enter 1-{len(options)}: ", end="")
+def prompt_choice(prompt_text: str, options: list[str]) -> int | None:
+    """Interactive arrow key selection menu."""
+    if not options:
+        return None
+    choice = questionary.select(
+        prompt_text,
+        choices=options,
+        pointer=">",
+    ).ask()
+    if choice is None:
+        return None
+    return options.index(choice) + 1
 
 
 def prompt_time(prompt_text: str, default: str = None) -> str:
     """Prompt for time in HH:MM:SS format."""
     while True:
-        time_val = input(
-            f"{prompt_text}" + (f" [{default}]" if default else "") + ": "
-        ).strip()
+        kwargs = {
+            "qmark": ">",
+            "validate": lambda x: _validate_time(x) is not None,
+        }
+        if default:
+            kwargs["default"] = default
+            prompt_with_default = f"{prompt_text} ({default})"
+        else:
+            prompt_with_default = prompt_text
+
+        time_val = questionary.text(prompt_with_default, **kwargs).ask()
+
         if not time_val and default:
             time_val = default
         try:
             get_duration_seconds(time_val)
             return time_val
-        except (ValueError, ZeroDivisionError):
+        except (ValueError, ZeroDivisionError, AttributeError):
             print("Invalid format. Use HH:MM:SS")
+
+
+def _validate_time(time_str: str) -> float | None:
+    """Validate time string and return seconds or None."""
+    if not time_str:
+        return None
+    try:
+        return get_duration_seconds(time_str)
+    except (ValueError, ZeroDivisionError):
+        return None
 
 
 def get_subjects(config: dict) -> dict:
@@ -206,8 +220,13 @@ def main():
 
         print(f"\n  {start_time} - {end_time} → {filename}")
 
-        confirm = input("  [Enter] Accept  [e]dit  [s]kip: ").strip().lower()
-        if confirm == "":
+        confirm = questionary.select(
+            "Action",
+            choices=["Accept", "Edit", "Skip", "Cancel"],
+            pointer=">",
+        ).ask()
+
+        if confirm == "Accept":
             segments.append(
                 {
                     "start": start_time,
@@ -218,16 +237,16 @@ def main():
                 }
             )
             last_end = end_time
-        elif confirm == "e":
+        elif confirm == "Edit":
             continue
-        elif confirm == "s":
+        elif confirm == "Skip":
             continue
-        elif confirm == "q":
+        elif confirm == "Cancel":
             print("\nCutting cancelled.")
             sys.exit(0)
 
-        more = input("Add another segment? [y/n]: ").strip().lower()
-        if more not in ("y", "yes"):
+        more = questionary.confirm("Add another segment?").ask()
+        if not more:
             break
 
     if not segments:
@@ -235,9 +254,10 @@ def main():
         sys.exit(0)
 
     if not args.path:
-        path_prompt = prompt_time(
-            f"Destination path (e.g., Section-F/{default_path})", default_path
-        )
+        path_prompt = questionary.text(
+            f"Destination path (e.g., Section-F/{default_path})",
+            default=default_path,
+        ).ask()
     else:
         path_prompt = args.path
 
@@ -255,8 +275,8 @@ def main():
         print("\n[DRY-RUN] No files were created.")
         sys.exit(0)
 
-    confirm = input("\nProceed with cutting? [y/n]: ").strip().lower()
-    if confirm != "y":
+    confirm = questionary.confirm("Proceed with cutting?").ask()
+    if not confirm:
         print("Cancelled.")
         sys.exit(0)
 
@@ -266,8 +286,8 @@ def main():
         output_file = dest_dir / seg["filename"]
         if output_file.exists() and not args.overwrite:
             print(f"\n[WARN] File exists: {output_file}")
-            overwrite = input("  Overwrite? [y/n]: ").strip().lower()
-            if overwrite != "y":
+            overwrite = questionary.confirm("Overwrite?").ask()
+            if not overwrite:
                 print("  Skipping.")
                 continue
 

@@ -2,9 +2,11 @@
 
 Sync local recordings to YouTube and organize them into playlists.
 
-## Installation
+## Setup
 
 ```bash
+cd src/yt-sync/
+
 # Create virtual environment
 python3 -m venv venv
 source venv/bin/activate
@@ -15,7 +17,7 @@ pip3 install -r requirements.txt
 
 ## Configuration
 
-1. Copy `sample-config.json` to your config location and edit it:
+1. Copy `sample-config.json` to `config.json` and edit with your playlists:
 
 ```json
 {
@@ -26,37 +28,37 @@ pip3 install -r requirements.txt
 }
 ```
 
-2. Place your `client_secret.json` (from Google Cloud Console) in the working directory.
+2. Place your `client_secret.json` (from Google Cloud Console) in this directory.
 
-3. The first run will authenticate with YouTube (opens browser).
+3. On first run, authenticate with YouTube (opens browser).
 
 ## Usage
 
 ```bash
-# Basic usage (from working directory with config.json in parent of Recordings)
-python3 -m yt_sync.syncer --dry-run
+# Run from src/yt-sync/ directory
+cd src/yt-sync/
 
-# Specify config file
-python3 -m yt_sync.syncer --config path/to/config.json --dry-run
+# Preview mode
+python3 syncer.py --dry-run
 
-# Specify credentials
-python3 -m yt_sync.syncer --credentials path/to/client_secret.json --dry-run
+# Sync all
+python3 syncer.py
 
 # Sync specific section/date
-python3 -m yt_sync.syncer --section F --date 2026-04-11 --dry-run
+python3 syncer.py --section F --date 2026-04-11
 
 # Verbose output
-python3 -m yt_sync.syncer --verbose
+python3 syncer.py --verbose
 
 # Re-authenticate (force new OAuth flow)
-python3 -m yt_sync.syncer --re-authenticate
+python3 syncer.py --re-authenticate
 ```
 
 ## CLI Options
 
 | Option | Description |
 |--------|-------------|
-| `--config PATH` | Path to config file (default: auto-detected) |
+| `--config PATH` | Path to config file (default: config.json) |
 | `--credentials PATH` | Path to client_secret.json (default: ./client_secret.json) |
 | `--section F\|H` | Sync specific section |
 | `--date YYYY-MM-DD` | Sync specific date |
@@ -67,6 +69,7 @@ python3 -m yt_sync.syncer --re-authenticate
 ## Directory Structure
 
 Recordings are expected in this structure:
+
 ```
 Recordings/
 ├── Section-F/

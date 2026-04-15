@@ -3,41 +3,21 @@
 syncer.py - Upload recordings to YouTube and organize into playlists.
 
 Usage:
-    python syncer.py                           # Sync all sections, all dates
-    python syncer.py --section F              # Sync Section F only
-    python syncer.py --section H              # Sync Section H only
-    python syncer.py --date 2026-04-11        # Sync specific date
-    python syncer.py --dry-run                # Preview mode
-    python syncer.py --verbose                 # Show all video status
-    python syncer.py --re-authenticate        # Force fresh OAuth authentication
-    python syncer.py --config path/to/config.json     # Use custom config file
-    python syncer.py --credentials path/to/client_secret.json  # Use custom credentials
-    python syncer.py --section F --dry-run     # Combine options
+    python3 syncer.py                     # Sync all sections, all dates
+    python3 syncer.py --section F        # Sync Section F only
+    python3 syncer.py --section H        # Sync Section H only
+    python3 syncer.py --date 2026-04-11 # Sync specific date
+    python3 syncer.py --dry-run          # Preview mode
+    python3 syncer.py --verbose          # Show all video status
+    python3 syncer.py --re-authenticate # Force fresh OAuth authentication
+    python3 syncer.py --config path/to/config.json     # Use custom config
+    python3 syncer.py --credentials path/to/secrets.json  # Use custom credentials
 """
 
 import argparse
 import os
 import sys
 from pathlib import Path
-
-
-def find_default_config() -> str:
-    """Find default config.json in Recordings parent directory."""
-    cwd = Path.cwd()
-    recordings_candidate = cwd / "Recordings"
-    if recordings_candidate.exists() and recordings_candidate.is_dir():
-        config_candidate = cwd / "config.json"
-        if config_candidate.exists():
-            return str(config_candidate)
-    config_candidate = cwd / "config.json"
-    if config_candidate.exists():
-        return str(config_candidate)
-    parent_recordings = cwd.parent / "Recordings"
-    if parent_recordings.exists() and parent_recordings.is_dir():
-        config_candidate = cwd.parent / "config.json"
-        if config_candidate.exists():
-            return str(config_candidate)
-    return "config.json"
 
 
 def get_dates_for_section(section: str, recordings_path: Path) -> list[Path]:
@@ -188,13 +168,11 @@ def resolve_credentials(credentials_path: str = None) -> str:
 def main():
     from config import load_config, get_playlists, get_recordings_path
 
-    default_config = find_default_config()
-
     parser = argparse.ArgumentParser(description="Sync recordings to YouTube")
     parser.add_argument(
         "--config",
-        default=default_config,
-        help=f"Path to config file (default: {default_config})",
+        default="config.json",
+        help="Path to config file (default: config.json)",
     )
     parser.add_argument(
         "--credentials",
@@ -218,7 +196,7 @@ def main():
     print("=" * 60)
     if args.dry_run:
         print("DRY-RUN MODE - No changes will be made")
-    print("Dars-e-Nizami Syncer")
+    print("yt-sync")
     print("=" * 60)
 
     print(f"\nLoading config from: {args.config}")

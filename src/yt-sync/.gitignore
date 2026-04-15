@@ -1,8 +1,7 @@
-token.json
+config.json
 client_secret.json
-venv/
+token.json
 __pycache__/
 *.pyc
 .ruff_cache/
-*.egg-info/
-.pytest_cache/
+venv/

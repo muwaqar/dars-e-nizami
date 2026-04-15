@@ -1,5 +1,11 @@
-# yt-sync
+# Dars-e-Nizami
 
-A tool to sync local recordings to YouTube and organize them into playlists.
+Utilities and tools for managing Dars-e-Nizami educational content.
 
-See [src/yt-sync/README.md](src/yt-sync/README.md) for detailed usage instructions.
+## Modules
+
+### yt-sync
+
+Sync local recordings to YouTube and organize them into playlists.
+
+See [src/yt-sync/README.md](src/yt-sync/README.md) for detailed usage.

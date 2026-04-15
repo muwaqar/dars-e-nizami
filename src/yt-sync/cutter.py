@@ -58,6 +58,15 @@ def get_duration_seconds(time_str: str) -> float:
         return float(time_str)
 
 
+def add_minutes(time_str: str, minutes: int) -> str:
+    """Add minutes to a HH:MM:SS time string."""
+    seconds = get_duration_seconds(time_str) + (minutes * 60)
+    hours = int(seconds // 3600)
+    mins = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    return f"{hours:02d}:{mins:02d}:{secs:02d}"
+
+
 def prompt_choice(prompt_text: str, options: list[str]) -> int | None:
     """Interactive arrow key selection menu."""
     if not options:
@@ -193,7 +202,7 @@ def main():
         print(f"\n--- Segment {len(segments) + 1} ---")
 
         start_time = prompt_time("Start time (HH:MM:SS)", last_end)
-        end_time = prompt_time("End time (HH:MM:SS)")
+        end_time = prompt_time("End time (HH:MM:SS)", add_minutes(start_time, 30))
 
         start_secs = get_duration_seconds(start_time)
         end_secs = get_duration_seconds(end_time)

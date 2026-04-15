@@ -39,9 +39,19 @@ def get_config() -> dict:
     return _config
 
 
+def get_subjects() -> dict:
+    """Get subjects configuration from config."""
+    return get_config()["subjects"]
+
+
+def get_subject_parts(subject_name: str) -> int:
+    """Get number of parts for a subject."""
+    return get_subjects()[subject_name]["parts"]
+
+
 def get_playlists() -> dict:
-    """Get playlist mappings from config."""
-    return get_config()["playlists"]
+    """Get playlist mappings from subjects."""
+    return {name: info["playlist"] for name, info in get_subjects().items()}
 
 
 def get_recordings_path() -> Path:

@@ -3,39 +3,55 @@
 syncer.py - Upload recordings to YouTube and organize into playlists.
 
 Usage:
-    python3 syncer.py                     # Sync all sections, all dates
-    python3 syncer.py --section F        # Sync Section F only
-    python3 syncer.py --section H        # Sync Section H only
-    python3 syncer.py --date 2026-04-11 # Sync specific date
+    python3 syncer.py                     # Sync all recordings
+    python3 syncer.py --path Section-F   # Sync specific path
+    python3 syncer.py --path Section-F/2026-04-11  # Sync specific path
     python3 syncer.py --dry-run          # Preview mode
     python3 syncer.py --verbose          # Show all video status
-    python3 syncer.py --re-authenticate # Force fresh OAuth authentication
+    python3 syncer.py --re-authenticate  # Force fresh OAuth authentication
     python3 syncer.py --config path/to/config.json     # Use custom config
     python3 syncer.py --credentials path/to/secrets.json  # Use custom credentials
 """
 
 import argparse
-import os
+import re
 import sys
+from collections import defaultdict
 from pathlib import Path
 
-
-def get_dates_for_section(section: str, recordings_path: Path) -> list[Path]:
-    """Get all date directories for a section."""
-    section_path = recordings_path / f"Section-{section}"
-    if not section_path.exists():
-        return []
-    return sorted([d for d in section_path.iterdir() if d.is_dir()])
+DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
-def get_mp4_files(date_path: Path) -> list[Path]:
-    """Get all MP4 files in a date directory."""
-    return sorted([f for f in date_path.iterdir() if f.suffix == ".mp4"])
+def find_date_in_path(path: Path) -> str | None:
+    for part in reversed(path.parts):
+        if DATE_PATTERN.match(part):
+            return part
+    return None
 
 
-def sync_date(
-    section: str,
-    date_path: Path,
+def get_video_files(
+    recordings_path: Path, path_filter: str = None
+) -> list[tuple[Path, str]]:
+    if path_filter:
+        pattern = f"**/{path_filter}/**/*.mp4"
+    else:
+        pattern = "**/*.mp4"
+
+    matches = list(recordings_path.glob(pattern))
+
+    results = []
+    for mp4 in matches:
+        date_str = find_date_in_path(mp4)
+        if date_str:
+            results.append((mp4, date_str))
+        else:
+            print(f"  [WARN] No date in path, skipping: {mp4}")
+
+    return sorted(results, key=lambda x: (x[1], x[0].name))
+
+
+def sync_group(
+    files: list[tuple[Path, str]],
     client,
     dry_run: bool,
     verbose: bool = False,
@@ -43,7 +59,7 @@ def sync_date(
     parse_filename_fn=None,
     generate_title_fn=None,
 ):
-    """Sync all videos for a specific date."""
+    """Sync all videos for a group of files in the same directory."""
     from config import parse_filename, generate_title
 
     if playlists is None:
@@ -55,17 +71,21 @@ def sync_date(
     if generate_title_fn is None:
         generate_title_fn = generate_title
 
-    date_str = date_path.name
-    files = get_mp4_files(date_path)
-
     if not files:
         return {"total": 0, "uploaded": 0, "added": 0, "skipped": 0, "errors": 0}
 
-    print(f"\n=== Syncing Section-{section}, {date_str} ===")
+    date_str = files[0][1]
+    file_paths = [f[0] for f in files]
 
-    stats = {"total": len(files), "uploaded": 0, "added": 0, "skipped": 0, "errors": 0}
+    stats = {
+        "total": len(file_paths),
+        "uploaded": 0,
+        "added": 0,
+        "skipped": 0,
+        "errors": 0,
+    }
 
-    for file_path in files:
+    for file_path in file_paths:
         filename = file_path.name
 
         try:
@@ -179,9 +199,9 @@ def main():
         help="Path to client_secret.json (default: ./client_secret.json)",
     )
     parser.add_argument(
-        "--section", choices=["F", "H"], help="Section to sync (F or H)"
+        "--path",
+        help="Filter recordings by path (e.g., 'Section-F', 'Section-F/2026-04-11')",
     )
-    parser.add_argument("--date", help="Specific date to sync (YYYY-MM-DD)")
     parser.add_argument(
         "--dry-run", action="store_true", help="Preview without uploading"
     )
@@ -223,35 +243,20 @@ def main():
     playlists = get_playlists()
     recordings_path = get_recordings_path()
 
-    sections = [args.section] if args.section else ["F", "H"]
+    video_files = get_video_files(recordings_path, args.path)
+
+    groups = defaultdict(list)
+    for mp4_path, date_str in video_files:
+        groups[mp4_path.parent].append((mp4_path, date_str))
 
     total_stats = {"total": 0, "uploaded": 0, "added": 0, "skipped": 0, "errors": 0}
 
-    for section in sections:
-        section_path = recordings_path / f"Section-{section}"
-        if not section_path.exists():
-            print(f"\nSection {section} not found at {section_path}")
-            continue
-
-        dates = get_dates_for_section(section, recordings_path)
-
-        if args.date:
-            date_path = section_path / args.date
-            if date_path.exists() and date_path.is_dir():
-                stats = sync_date(
-                    section, date_path, client, args.dry_run, args.verbose, playlists
-                )
-                for k in total_stats:
-                    total_stats[k] += stats[k]
-            else:
-                print(f"\nDate {args.date} not found in Section {section}")
-        else:
-            for date_path in dates:
-                stats = sync_date(
-                    section, date_path, client, args.dry_run, args.verbose, playlists
-                )
-                for k in total_stats:
-                    total_stats[k] += stats[k]
+    for dir_path, files in sorted(groups.items()):
+        dir_display = dir_path.relative_to(recordings_path)
+        print(f"\n=== Syncing {dir_display} ===")
+        stats = sync_group(files, client, args.dry_run, args.verbose, playlists)
+        for k in total_stats:
+            total_stats[k] += stats[k]
 
     print("\n" + "=" * 60)
     print("=== Fixing playlist ordering ===")

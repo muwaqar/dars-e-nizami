@@ -41,11 +41,12 @@ cd src/yt-sync/
 # Preview mode
 python3 syncer.py --dry-run
 
-# Sync all
+# Sync all recordings
 python3 syncer.py
 
-# Sync specific section/date
-python3 syncer.py --section F --date 2026-04-11
+# Sync specific path
+python3 syncer.py --path Section-F
+python3 syncer.py --path Section-F/2026-04-11
 
 # Verbose output
 python3 syncer.py --verbose
@@ -60,18 +61,20 @@ python3 syncer.py --re-authenticate
 |--------|-------------|
 | `--config PATH` | Path to config file (default: config.json) |
 | `--credentials PATH` | Path to client_secret.json (default: ./client_secret.json) |
-| `--section F\|H` | Sync specific section |
-| `--date YYYY-MM-DD` | Sync specific date |
+| `--path GLOB` | Filter recordings by path (e.g., 'Section-F', 'Section-F/2026-04-11') |
 | `--dry-run` | Preview without uploading |
 | `--verbose` | Show all video status |
 | `--re-authenticate` | Force fresh OAuth authentication |
 
 ## Directory Structure
 
-Recordings are expected in this structure:
+Recordings can use any directory structure. The date is extracted from path segments matching `YYYY-MM-DD`.
 
 ```
 Recordings/
+├── 2025-05-11/                    # Flat structure
+│   ├── Subject 1.mp4
+│   └── Subject 2.mp4
 ├── Section-F/
 │   ├── 2026-04-04/
 │   │   ├── 1. Subject 1.mp4

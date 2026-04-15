@@ -10,7 +10,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ## Configuration
@@ -34,22 +34,22 @@ pip install -r requirements.txt
 
 ```bash
 # Basic usage (from working directory with config.json in parent of Recordings)
-python -m yt_sync.syncer --dry-run
+python3 -m yt_sync.syncer --dry-run
 
 # Specify config file
-python -m yt_sync.syncer --config path/to/config.json --dry-run
+python3 -m yt_sync.syncer --config path/to/config.json --dry-run
 
 # Specify credentials
-python -m yt_sync.syncer --credentials path/to/client_secret.json --dry-run
+python3 -m yt_sync.syncer --credentials path/to/client_secret.json --dry-run
 
 # Sync specific section/date
-python -m yt_sync.syncer --section F --date 2026-04-11 --dry-run
+python3 -m yt_sync.syncer --section F --date 2026-04-11 --dry-run
 
 # Verbose output
-python -m yt_sync.syncer --verbose
+python3 -m yt_sync.syncer --verbose
 
 # Re-authenticate (force new OAuth flow)
-python -m yt_sync.syncer --re-authenticate
+python3 -m yt_sync.syncer --re-authenticate
 ```
 
 ## CLI Options

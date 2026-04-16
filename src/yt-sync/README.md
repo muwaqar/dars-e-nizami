@@ -35,7 +35,7 @@ pip3 install -r requirements.txt
 }
 ```
 
-2. Place your `client_secret.json` (from Google Cloud Console) in the config directory.
+2. Place your `client_secret.json` (from Google Cloud Console) in the `src/yt-sync/` directory.
 
 3. On first run, authenticate with YouTube (opens browser).
 

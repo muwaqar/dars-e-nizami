@@ -251,16 +251,11 @@ def prefix_matches(prefix1: str, prefix2: str) -> bool:
 
 
 def get_client_secrets_file() -> str:
-    """Get default client secrets file path. Looks in config directory."""
-    config_path = get_config_path()
-    if config_path:
-        config_dir = config_path.parent
-        secrets_path = config_dir / "client_secret.json"
-        if secrets_path.exists():
-            return str(secrets_path)
+    """Get default client secrets file path. Looks in current directory."""
     cwd_secret = Path.cwd() / "client_secret.json"
     if cwd_secret.exists():
         return str(cwd_secret)
     raise FileNotFoundError(
-        "client_secret.json not found. Use --credentials to specify a custom path."
+        "client_secret.json not found in current directory. "
+        "Use --credentials to specify a custom path."
     )

@@ -17,58 +17,115 @@ pip3 install -r requirements.txt
 
 ## Configuration
 
-1. Copy `sample-config.json` to `config.json` and edit with your playlists:
+1. Copy `sample-config.json` to your recordings folder as `config.json`:
 
 ```json
 {
   "default_privacy": "unlisted",
-  "playlists": {
-    "Subject Name": "PLAYLIST_ID"
-  }
+  "recordings_path": "Recordings",
+  "playlists": [
+    {
+      "filename_key": "Sharh Jami",
+      "parts": 3,
+      "yt_video_prefix": "Sharh Jami",
+      "yt_playlist_id": "PL...",
+      "yt_playlist_sort": "asc"
+    }
+  ]
 }
 ```
 
-2. Place your `client_secret.json` (from Google Cloud Console) in this directory.
+2. Place your `client_secret.json` (from Google Cloud Console) in the config directory.
 
 3. On first run, authenticate with YouTube (opens browser).
 
-## Usage
+## Config Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `default_privacy` | No | Video privacy: "public", "unlisted", "private" (default: unlisted) |
+| `recordings_path` | No | Subdirectory to scan for mp4 files. If omitted, scans same directory as config.json |
+| `playlists` | Yes | List of playlist configurations |
+
+### Playlist Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filename_key` | No | Filename must contain this string to match. If omitted, this is the fallback playlist |
+| `parts` | No | Number of parts per recording (for sorting) |
+| `yt_video_prefix` | Yes | Title prefix for YouTube videos |
+| `yt_playlist_id` | Yes | YouTube playlist ID |
+| `yt_playlist_sort` | No | Sort order: "asc" (default) or "desc" |
+
+## Usage - Syncer
 
 ```bash
-# Run from src/yt-sync/ directory
 cd src/yt-sync/
 
 # Preview mode
-python3 syncer.py --dry-run
+python3 syncer.py --config /path/to/config.json --dry-run
 
 # Sync all recordings
-python3 syncer.py
+python3 syncer.py --config /path/to/config.json
 
 # Sync specific path
-python3 syncer.py --path Section-F
-python3 syncer.py --path Section-F/2026-04-11
+python3 syncer.py --config /path/to/config.json --path Section-F
 
 # Verbose output
-python3 syncer.py --verbose
+python3 syncer.py --config /path/to/config.json --verbose
 
 # Re-authenticate (force new OAuth flow)
-python3 syncer.py --re-authenticate
+python3 syncer.py --config /path/to/config.json --re-authenticate
+```
+
+## Usage - Cutter
+
+Cut Zoom recordings into individual class segments.
+
+```bash
+cd src/yt-sync/
+
+# Interactive mode
+python3 cutter.py input.mp4 --config /path/to/config.json
+
+# With destination path
+python3 cutter.py input.mp4 --path Section-F/2026-04-11 --config /path/to/config.json
+
+# Preview mode
+python3 cutter.py input.mp4 --dry-run --config /path/to/config.json
+
+# Overwrite existing files
+python3 cutter.py input.mp4 --overwrite --config /path/to/config.json
 ```
 
 ## CLI Options
 
+### Syncer
+
 | Option | Description |
 |--------|-------------|
-| `--config PATH` | Path to config file (default: config.json) |
-| `--credentials PATH` | Path to client_secret.json (default: ./client_secret.json) |
-| `--path GLOB` | Filter recordings by path (e.g., 'Section-F', 'Section-F/2026-04-11') |
+| `--config PATH` | Path to config file |
+| `--credentials PATH` | Path to client_secret.json |
+| `--path GLOB` | Filter recordings by path |
 | `--dry-run` | Preview without uploading |
 | `--verbose` | Show all video status |
 | `--re-authenticate` | Force fresh OAuth authentication |
 
+### Cutter
+
+| Option | Description |
+|--------|-------------|
+| `input` | Input video file (required) |
+| `--config PATH` | Path to config file |
+| `--path PATH` | Destination path (e.g., Section-F/2026-04-11) |
+| `--dry-run` | Preview without cutting |
+| `--overwrite` | Overwrite existing files |
+
 ## Directory Structure
 
-Recordings can use any directory structure. The date is extracted from path segments matching `YYYY-MM-DD`.
+Recordings can use any directory structure. The date is extracted from:
+1. Path segments matching `YYYY-MM-DD`
+2. Filenames matching `YYYY-MM-DD.mp4` (when no date in path)
 
 ```
 Recordings/
@@ -77,24 +134,35 @@ Recordings/
 │   └── Subject 2.mp4
 ├── Section-F/
 │   ├── 2026-04-04/
-│   │   ├── 1. Subject 1.mp4
-│   │   └── 2. Subject 2.mp4
+│   │   ├── 1. Sharh Jami 1.mp4
+│   │   └── 2. Sharh Jami 2.mp4
 │   └── 2026-04-05/
 │       └── ...
 └── Section-H/
     └── ...
 ```
 
+For arbitrary recordings (all in same folder):
+```
+/path/to/config.json
+2026-04-01.mp4
+2026-04-02.mp4
+2026-04-03.mp4
+```
+
 ## Video Naming
 
-Files should follow: `{number}. {Subject} {part}.mp4`
+Files should follow: `{number}. {prefix} {part}.mp4`
 
 Example: `1. Sharh Jami 1.mp4` → `Sharh Jami 1: 2026-04-04`
 
+For arbitrary recordings (filename = date): `2026-04-01.mp4` → `Title Prefix: 2026-04-01`
+
 ## Playlist Ordering
 
-Videos are ordered by:
-1. Part number (ascending)
-2. Date (ascending)
+Videos are ordered based on `yt_playlist_sort`:
+
+- **asc** (default): Part number (ascending), then date (ascending)
+- **desc**: Date only (descending)
 
 The script automatically reorders playlists to maintain correct order.

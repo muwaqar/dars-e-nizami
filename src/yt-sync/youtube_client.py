@@ -371,12 +371,14 @@ class YouTubeClient:
         if dry_run:
             return moves
 
+        self._playlist_cache.pop(playlist_id, None)
+
         for target_pos in range(len(videos) - 1, -1, -1):
-            self._playlist_cache.pop(playlist_id, None)
             videos = self.get_playlist_videos(playlist_id)
 
+            target_title = indexed[target_pos][1]["title"]
             for video in videos:
-                if video["title"] == indexed[target_pos][1]["title"]:
+                if video["title"] == target_title:
                     if video["position"] != target_pos:
                         self.update_playlist_item_position(
                             video["playlist_item_id"], playlist_id, target_pos

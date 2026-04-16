@@ -18,13 +18,13 @@ from config import (
     API_VERSION,
     get_playlists,
     get_default_privacy,
-    parse_filename,
     generate_title,
-    get_subject_from_title,
+    get_prefix_from_title,
     get_part_from_title,
     get_date_from_title,
     video_sort_key,
-    subject_matches,
+    prefix_matches,
+    get_client_secrets_file,
 )
 
 
@@ -280,24 +280,32 @@ class YouTubeClient:
             return False
 
     def calculate_position(
-        self, playlist_id: str, subject: str, part: str | None, date: str
+        self,
+        playlist_id: str,
+        yt_prefix: str,
+        part: str | None,
+        date: str,
+        sort_order: str = "asc",
     ) -> int:
         """
         Calculate the correct position for a new video in playlist.
-        Sorts by part number (asc), then date (asc).
-        Videos without parts sort by date only.
+        Sorts by part number (asc), then date (asc) for 'asc' mode.
+        Sorts by date only (desc) for 'desc' mode.
         """
         videos = self.get_playlist_videos(playlist_id)
 
-        new_video_sort_key = (int(part) if part else float("inf"), date)
+        if sort_order == "desc":
+            new_video_sort_key = (date,)
+        else:
+            new_video_sort_key = (int(part) if part else float("inf"), date)
 
         position = 0
         for video in videos:
-            video_subject = get_subject_from_title(video["title"])
-            if not subject_matches(video_subject, subject):
+            video_prefix = get_prefix_from_title(video["title"])
+            if not prefix_matches(video_prefix, yt_prefix):
                 continue
 
-            video_sort = video_sort_key(video["title"])
+            video_sort = video_sort_key(video["title"], sort_order)
             if video_sort < new_video_sort_key:
                 position += 1
 
@@ -337,16 +345,21 @@ class YouTubeClient:
             print(f"      Position update failed: {e}")
             return False
 
-    def fix_playlist_order(self, playlist_id: str, dry_run: bool = False) -> int:
+    def fix_playlist_order(
+        self, playlist_id: str, sort_order: str = "asc", dry_run: bool = False
+    ) -> int:
         """
         Fix video ordering in playlist in-place.
         Returns number of videos that would be/were moved.
         """
         videos = self.get_playlist_videos(playlist_id)
 
-        indexed = [(i, v, video_sort_key(v["title"])) for i, v in enumerate(videos)]
+        indexed = [
+            (i, v, video_sort_key(v["title"], sort_order)) for i, v in enumerate(videos)
+        ]
 
-        indexed.sort(key=lambda x: x[2])
+        reverse = sort_order == "desc"
+        indexed.sort(key=lambda x: x[2], reverse=reverse)
 
         for new_pos, (orig_pos, video, _) in enumerate(indexed):
             video["target_position"] = new_pos

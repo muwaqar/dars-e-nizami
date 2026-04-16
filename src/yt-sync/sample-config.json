@@ -1,6 +1,13 @@
 {
   "default_privacy": "unlisted",
-  "playlists": {
-    "Subject Name": "PLAYLIST_ID"
-  }
+  "recordings_path": "Recordings",
+  "playlists": [
+    {
+      "filename_key": "Subject Name",
+      "parts": 5,
+      "yt_video_prefix": "Subject Name",
+      "yt_playlist_id": "PLAYLIST_ID",
+      "yt_playlist_sort": "asc"
+    }
+  ]
 }

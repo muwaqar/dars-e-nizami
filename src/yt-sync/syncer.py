@@ -26,6 +26,10 @@ def find_date_in_path(path: Path) -> str | None:
     for part in reversed(path.parts):
         if DATE_PATTERN.match(part):
             return part
+    filename_without_ext = path.name.removesuffix(".mp4")
+    match = DATE_PATTERN.match(filename_without_ext)
+    if match:
+        return match.group(0)
     return None
 
 
@@ -55,58 +59,56 @@ def sync_group(
     client,
     dry_run: bool,
     verbose: bool = False,
-    playlists: dict = None,
-    parse_filename_fn=None,
-    generate_title_fn=None,
 ):
     """Sync all videos for a group of files in the same directory."""
-    from config import parse_filename, generate_title
-
-    if playlists is None:
-        from config import get_playlists
-
-        playlists = get_playlists()
-    if parse_filename_fn is None:
-        parse_filename_fn = parse_filename
-    if generate_title_fn is None:
-        generate_title_fn = generate_title
+    from config import (
+        find_playlist_for_file,
+        get_yt_playlist_id,
+        get_yt_video_prefix,
+        get_yt_playlist_sort,
+        get_part_from_filename,
+        generate_title,
+    )
 
     if not files:
-        return {"total": 0, "uploaded": 0, "added": 0, "skipped": 0, "errors": 0}
-
-    date_str = files[0][1]
-    file_paths = [f[0] for f in files]
+        return {
+            "total": 0,
+            "uploaded": 0,
+            "added": 0,
+            "skipped": 0,
+            "errors": 0,
+            "would_upload": 0,
+        }
 
     stats = {
-        "total": len(file_paths),
+        "total": len(files),
         "uploaded": 0,
         "added": 0,
         "skipped": 0,
         "errors": 0,
+        "would_upload": 0,
     }
 
-    for file_path in file_paths:
+    for file_path, date_str in files:
         filename = file_path.name
 
-        try:
-            subject, part = parse_filename_fn(filename)
-        except ValueError as e:
-            print(f"  [ERROR] {filename}: {e}")
+        playlist = find_playlist_for_file(filename)
+        if playlist is None:
+            print(f"  [ERROR] {filename}: No matching playlist found, skipping")
             stats["errors"] += 1
             continue
 
-        if subject not in playlists:
-            print(f"  [WARN] {filename}: Unknown subject '{subject}', skipping")
-            stats["skipped"] += 1
-            continue
+        playlist_id = get_yt_playlist_id(playlist)
+        yt_prefix = get_yt_video_prefix(playlist)
+        sort_order = get_yt_playlist_sort(playlist)
+        part = get_part_from_filename(filename)
 
-        playlist_id = playlists[subject]
-        title = generate_title_fn(subject, part, date_str)
+        title = generate_title(yt_prefix, part, date_str)
 
         if verbose:
             print(f"\nProcessing: {filename}")
             print(f"  → Title: {title}")
-            print(f"  → Playlist: {subject}")
+            print(f"  → Playlist: {yt_prefix}")
 
         if client.video_exists_in_playlist(playlist_id, title):
             if verbose:
@@ -114,17 +116,13 @@ def sync_group(
             stats["skipped"] += 1
             continue
 
-        position = client.calculate_position(playlist_id, subject, part, date_str)
+        position = client.calculate_position(
+            playlist_id, yt_prefix, part, date_str, sort_order
+        )
 
         if dry_run:
-            video = client.find_video_on_youtube(title)
-            if video:
-                print(
-                    f"  {filename} → {title} [exists on YT, would add at position {position + 1}]"
-                )
-            else:
-                print(f"  {filename} → {title} [would upload, position {position + 1}]")
-            stats["skipped"] += 1
+            print(f"  {filename} → {title} [would upload, position {position + 1}]")
+            stats["would_upload"] += 1
             continue
 
         print(f"  {filename} → {title}")
@@ -186,7 +184,14 @@ def resolve_credentials(credentials_path: str = None) -> str:
 
 
 def main():
-    from config import load_config, get_playlists, get_recordings_path
+    from config import (
+        load_config,
+        get_playlists,
+        get_recordings_path,
+        get_yt_video_prefix,
+        get_yt_playlist_id,
+        get_yt_playlist_sort,
+    )
 
     parser = argparse.ArgumentParser(description="Sync recordings to YouTube")
     parser.add_argument(
@@ -249,41 +254,50 @@ def main():
     for mp4_path, date_str in video_files:
         groups[mp4_path.parent].append((mp4_path, date_str))
 
-    total_stats = {"total": 0, "uploaded": 0, "added": 0, "skipped": 0, "errors": 0}
+    total_stats = {
+        "total": 0,
+        "uploaded": 0,
+        "added": 0,
+        "skipped": 0,
+        "errors": 0,
+        "would_upload": 0,
+    }
 
     for dir_path, files in sorted(groups.items()):
         dir_display = dir_path.relative_to(recordings_path)
         print(f"\n=== Syncing {dir_display} ===")
-        stats = sync_group(files, client, args.dry_run, args.verbose, playlists)
+        stats = sync_group(files, client, args.dry_run, args.verbose)
         for k in total_stats:
             total_stats[k] += stats[k]
 
     print("\n" + "=" * 60)
     print("=== Fixing playlist ordering ===")
     print("=" * 60)
-    for subject, playlist_id in playlists.items():
-        moved = client.fix_playlist_order(playlist_id, dry_run=args.dry_run)
+    for playlist in playlists:
+        playlist_id = get_yt_playlist_id(playlist)
+        yt_prefix = get_yt_video_prefix(playlist)
+        sort_order = get_yt_playlist_sort(playlist)
+        moved = client.fix_playlist_order(
+            playlist_id, sort_order=sort_order, dry_run=args.dry_run
+        )
         if args.dry_run:
-            print(f"  [ORDER] {subject}: Would fix {moved} videos")
+            print(f"  [ORDER] {yt_prefix}: Would fix {moved} videos")
         else:
-            print(f"  [ORDER] {subject}: Fixed {moved} videos")
+            print(f"  [ORDER] {yt_prefix}: Fixed {moved} videos")
 
     print("\n" + "=" * 60)
     print("=== Summary ===")
     print("=" * 60)
-    print(f"Total:    {total_stats['total']}")
+    print(f"Total:         {total_stats['total']:>5}")
     if args.dry_run:
-        would_upload_or_add = (
-            total_stats["total"] - total_stats["skipped"] - total_stats["errors"]
-        )
-        print(f"Would upload or add: {would_upload_or_add}")
-        print(f"Would skip:   {total_stats['skipped']}")
-        print(f"Would error:  {total_stats['errors']}")
+        print(f"Would upload:  {total_stats['would_upload']:>5}")
+        print(f"Would skip:    {total_stats['skipped']:>5}")
+        print(f"Would error:   {total_stats['errors']:>5}")
     else:
-        print(f"Uploaded: {total_stats['uploaded']}")
-        print(f"Added (existing): {total_stats['added']}")
-        print(f"Skipped:  {total_stats['skipped']}")
-        print(f"Errors:   {total_stats['errors']}")
+        print(f"Uploaded:      {total_stats['uploaded']:>5}")
+        print(f"Added (exist): {total_stats['added']:>5}")
+        print(f"Skipped:       {total_stats['skipped']:>5}")
+        print(f"Errors:        {total_stats['errors']:>5}")
 
 
 if __name__ == "__main__":

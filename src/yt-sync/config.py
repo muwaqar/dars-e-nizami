@@ -23,44 +23,8 @@ def load_config(config_path: str = "config.json") -> dict:
     global _config, _config_path
     _config_path = Path(config_path).expanduser().resolve()
     with open(_config_path) as f:
-        raw_config = json.load(f)
-
-    _config = _migrate_config(raw_config)
+        _config = json.load(f)
     return _config
-
-
-def _migrate_config(raw_config: dict) -> dict:
-    """
-    Migrate old 'subjects' format to new 'playlists' format.
-    Old format:
-        "subjects": {"Sharh Jami": {"playlist": "PL...", "parts": 5}}
-    New format:
-        "playlists": [{"filename_key": "Sharh Jami", "yt_video_prefix": "Sharh Jami", "yt_playlist_id": "PL...", "parts": 5}]
-
-    Also migrates recordings_path: old configs default to "Recordings" if not specified.
-    """
-    if "playlists" in raw_config:
-        return raw_config
-
-    if "subjects" in raw_config:
-        playlists = []
-        for name, info in raw_config["subjects"].items():
-            playlists.append(
-                {
-                    "filename_key": name,
-                    "parts": info.get("parts"),
-                    "yt_video_prefix": name,
-                    "yt_playlist_id": info["playlist"],
-                    "yt_playlist_sort": "asc",
-                }
-            )
-        raw_config["playlists"] = playlists
-        del raw_config["subjects"]
-
-    if "recordings_path" not in raw_config:
-        raw_config["recordings_path"] = "Recordings"
-
-    return raw_config
 
 
 def get_config_path() -> Optional[Path]:
@@ -93,7 +57,7 @@ def get_recordings_path() -> Path:
     """
     Get recordings path from config.
     Resolves relative to config.json location.
-    If recordings_path not specified, defaults to config.json directory (new behavior).
+    If recordings_path not specified, defaults to config.json directory.
     """
     config_path = get_config_path()
     config_dir = config_path.parent if config_path else Path.cwd()

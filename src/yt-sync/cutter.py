@@ -11,7 +11,6 @@ Usage:
 """
 
 import argparse
-import json
 import os
 import subprocess
 import sys
@@ -19,12 +18,6 @@ from datetime import datetime
 from pathlib import Path
 
 import questionary
-
-
-def load_config(config_path: str | Path) -> dict:
-    config_path = Path(config_path).expanduser().resolve()
-    with open(config_path) as f:
-        return json.load(f)
 
 
 def get_duration(video_path: str) -> str:
@@ -115,17 +108,24 @@ def _validate_time(time_str: str) -> float | None:
         return None
 
 
-def get_subjects(config: dict) -> dict:
-    """Get subjects from config."""
-    return config["subjects"]
+def get_playlist_items() -> tuple[list[str], dict]:
+    """Get filename_keys for cutter UI and parts mapping."""
+    from config import get_playlists
+
+    playlists = get_playlists()
+
+    names = [p["filename_key"] for p in playlists]
+    parts_map = {p["filename_key"]: p.get("parts", 1) for p in playlists}
+
+    return names, parts_map
 
 
 def get_recordings_path(config_path: Path) -> Path:
     """Get recordings path from config location."""
-    config_dir = config_path.parent
-    config = load_config(config_path)
-    recordings = config.get("recordings_path", "Recordings")
-    return (config_dir / recordings).expanduser().resolve()
+    from config import load_config, get_recordings_path as config_get_recordings_path
+
+    load_config(config_path)
+    return config_get_recordings_path()
 
 
 def check_ffmpeg():
@@ -174,7 +174,9 @@ def main():
     print(f"\nProcessing: {input_file.name}")
 
     try:
-        config = load_config(args.config)
+        from config import load_config
+
+        load_config(args.config)
     except FileNotFoundError:
         print(f"Error: Config file not found: {args.config}")
         sys.exit(1)
@@ -184,8 +186,7 @@ def main():
     duration = get_duration(str(input_file))
     print(f"Duration: {duration}")
 
-    subjects = get_subjects(config)
-    subject_names = list(subjects.keys())
+    names, parts_map = get_playlist_items()
 
     default_path = args.path
     if not default_path:
@@ -210,11 +211,11 @@ def main():
             print("Error: End time must be after start time")
             continue
 
-        idx = prompt_choice("Select subject", subject_names)
+        idx = prompt_choice("Select subject", names)
         if idx is None:
             continue
-        selected_subject = subject_names[idx - 1]
-        parts = subjects[selected_subject]["parts"]
+        selected_name = names[idx - 1]
+        parts = parts_map[selected_name]
 
         if parts == 1:
             selected_part = 1
@@ -225,7 +226,7 @@ def main():
                 continue
             selected_part = part_idx
 
-        filename = f"{len(segments) + 1}. {selected_subject} {selected_part}.mp4"
+        filename = f"{len(segments) + 1}. {selected_name} {selected_part}.mp4"
 
         print(f"\n  {start_time} - {end_time} → {filename}")
 
@@ -240,7 +241,7 @@ def main():
                 {
                     "start": start_time,
                     "end": end_time,
-                    "subject": selected_subject,
+                    "filename_key": selected_name,
                     "part": selected_part,
                     "filename": filename,
                 }

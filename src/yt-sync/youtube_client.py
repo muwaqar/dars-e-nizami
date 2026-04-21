@@ -354,6 +354,11 @@ class YouTubeClient:
         """
         videos = self.get_playlist_videos(playlist_id)
 
+        videos = [v for v in videos if not v["title"].startswith("Deleted video")]
+        if not videos:
+            print(f"[WARN] No valid videos in playlist {playlist_id}")
+            return 0
+
         indexed = [
             (i, v, video_sort_key(v["title"], sort_order)) for i, v in enumerate(videos)
         ]

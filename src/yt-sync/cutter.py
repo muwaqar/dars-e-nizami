@@ -216,17 +216,19 @@ def main():
             continue
         selected_name = names[idx - 1]
         parts = parts_map[selected_name]
+        selected_part = None
 
-        if parts == 1:
-            selected_part = 1
-        else:
+        if parts > 1:
             part_options = [str(i) for i in range(1, parts + 1)]
             part_idx = prompt_choice("Select part", part_options)
             if part_idx is None:
                 continue
             selected_part = part_idx
 
-        filename = f"{len(segments) + 1}. {selected_name} {selected_part}.mp4"
+        if selected_part is not None:
+            filename = f"{len(segments) + 1}. {selected_name} {selected_part}.mp4"
+        else:
+            filename = f"{len(segments) + 1}. {selected_name}.mp4"
 
         print(f"\n  {start_time} - {end_time} → {filename}")
 

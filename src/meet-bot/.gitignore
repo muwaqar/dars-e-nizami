@@ -1,0 +1,9 @@
+config.json
+client_secret.json
+token.json
+chrome_session.json
+__pycache__/
+*.pyc
+.ruff_cache/
+venv/
+debug_*.png

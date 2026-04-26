@@ -188,7 +188,6 @@ def main() -> None:
         run_bot(config)
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
-        sys.exit(0)
     except Exception as e:
         logger.error(f"Bot error: {e}")
         sys.exit(1)

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 DEFAULT_POLL_INTERVAL = 30
 DEFAULT_TOKEN_PATH = Path(__file__).parent / "token.json"
 DEFAULT_CLIENT_SECRET_PATH = Path(__file__).parent / "client_secret.json"
+DEFAULT_SESSION_PATH = Path(__file__).parent / "chrome_session.json"
 
 
 @dataclass
@@ -16,9 +17,10 @@ class Config:
     token_path: Path = DEFAULT_TOKEN_PATH
     client_secret_path: Path = DEFAULT_CLIENT_SECRET_PATH
     headless: bool = True
-    session_path: Path = None
+    session_path: Path = DEFAULT_SESSION_PATH
     strict_media: bool = True
     debug: bool = False
+    new_session: bool = False
 
 
 def parse_args() -> Config:
@@ -64,7 +66,12 @@ def parse_args() -> Config:
         "--session",
         type=str,
         default=None,
-        help="Path to browser session state JSON (from signed-in Chrome)",
+        help=f"Path to browser session state JSON (default: {DEFAULT_SESSION_PATH})",
+    )
+    parser.add_argument(
+        "--new-session",
+        action="store_true",
+        help="Force re-create browser session (login again)",
     )
     parser.add_argument(
         "--no-strict-media",
@@ -86,9 +93,10 @@ def parse_args() -> Config:
         token_path=args.token_path,
         client_secret_path=args.client_secret,
         headless=not args.no_headless,
-        session_path=Path(args.session) if args.session else None,
+        session_path=Path(args.session) if args.session else DEFAULT_SESSION_PATH,
         strict_media=not args.no_strict_media,
         debug=args.debug,
+        new_session=args.new_session,
     )
 
 

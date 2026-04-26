@@ -25,6 +25,21 @@ def get_space_name(meet_client: MeetClient, meeting_code: str) -> str:
     return space_name
 
 
+def create_session(session_path: Path) -> None:
+    """Create a browser session by having user log in."""
+    logger.info("Creating new browser session...")
+    logger.info("Opening browser for login - please sign into your Google account")
+    
+    with MeetBrowser(headless=False, strict_media=False) as browser:
+        browser.page.goto("https://meet.google.com/")
+        logger.info("Please sign into your Google account in the browser window")
+        logger.info("Press Enter when done...")
+        input()
+        
+        browser.save_session(str(session_path))
+        logger.info(f"Session saved to {session_path}")
+
+
 def wait_for_conference_start(
     meet_client: MeetClient,
     space_name: str,
@@ -81,8 +96,14 @@ def run_bot(config: Config) -> None:
     logger.info(f"Headless: {config.headless}")
     logger.info(f"Strict media: {config.strict_media}")
     logger.info(f"Debug: {config.debug}")
-    if config.session_path:
-        logger.info(f"Session: {config.session_path}")
+    logger.info(f"Session: {config.session_path}")
+    logger.info(f"New session: {config.new_session}")
+    
+    needs_session = config.new_session or not config.session_path.exists()
+    if needs_session:
+        if config.new_session and config.session_path.exists():
+            logger.info("--new-session specified, removing old session file")
+        create_session(config.session_path)
 
     meeting_code = extract_meeting_code(config.meet_link)
     

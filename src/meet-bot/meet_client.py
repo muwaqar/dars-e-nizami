@@ -172,6 +172,11 @@ class MeetClient:
         data = response.json()
         return data.get("participantSessions", [])
 
+    def get_all_participant_session_ids(self, conference_name: str) -> set[str]:
+        """Get ALL participant session IDs (including ended sessions)."""
+        sessions = self.list_participant_sessions(conference_name)
+        return {s.get("name") for s in sessions if s.get("name")}
+
     def get_active_participant_session_ids(self, conference_name: str) -> set[str]:
         """Get set of active participant session IDs (unique device/session)."""
         sessions = self.list_participant_sessions(conference_name)

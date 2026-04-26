@@ -66,19 +66,20 @@ def poll_participants(
     poll_interval: int,
 ) -> tuple[set[str], list[str]]:
     """
-    Poll for new participants.
+    Poll for new participant sessions.
+    Uses sessions so same user joining from different device is detected as new.
     
     Returns:
-        Tuple of (updated participant set, list of new participant IDs)
+        Tuple of (updated session set, list of new session IDs)
     """
-    logger.info("Calling API to get participants...")
-    current_participants = meet_client.get_all_participant_ids(conference_name)
-    logger.info(f"Got participants: {current_participants}")
+    logger.info("Calling API to get participant sessions...")
+    current_participants = meet_client.get_all_participant_session_ids(conference_name)
+    logger.info(f"Got sessions: {current_participants}")
     
     new_participants = current_participants - known_participants
     
     if new_participants:
-        logger.info(f"New participants detected: {new_participants}")
+        logger.info(f"New sessions detected: {new_participants}")
         return current_participants, list(new_participants)
     
     return current_participants, []
@@ -130,8 +131,8 @@ def run_bot(config: Config) -> None:
         
         conference_name = wait_for_conference_start(meet_client, space_name, timeout=60)
         
-        initial_participants = meet_client.get_participant_ids(conference_name)
-        logger.info(f"Initial participants: {initial_participants}")
+        initial_participants = meet_client.get_all_participant_session_ids(conference_name)
+        logger.info(f"Initial sessions: {initial_participants}")
         known_participants = initial_participants.copy()
         
         logger.info("Sending initial welcome message...")
@@ -155,9 +156,15 @@ def run_bot(config: Config) -> None:
                     participants = meet_client.list_participants(conference_name)
                     participant_map = {p.name: p for p in participants}
                     
-                    for participant_id in new_participant_ids:
-                        participant = participant_map.get(participant_id)
-                        display_name = participant.display_name if participant else "Someone"
+                    for session_id in new_participant_ids:
+                        display_name = "Someone"
+                        
+                        if "/participantSessions/" in session_id:
+                            parts = session_id.split("/participantSessions/")
+                            participant_id = parts[0]
+                            participant = participant_map.get(participant_id)
+                            if participant:
+                                display_name = participant.display_name
                         
                         logger.info(f"New joiner detected: {display_name}")
                         

@@ -66,19 +66,19 @@ def poll_participants(
     poll_interval: int,
 ) -> tuple[set[str], list[str]]:
     """
-    Poll for new participants using participant sessions (more granular).
+    Poll for new participants.
     
     Returns:
-        Tuple of (updated participant session set, list of new session IDs)
+        Tuple of (updated participant set, list of new participant IDs)
     """
-    logger.info("Calling API to get participant sessions...")
-    current_participants = meet_client.get_active_participant_session_ids(conference_name)
-    logger.info(f"Got sessions: {current_participants}")
+    logger.info("Calling API to get participants...")
+    current_participants = meet_client.get_all_participant_ids(conference_name)
+    logger.info(f"Got participants: {current_participants}")
     
     new_participants = current_participants - known_participants
     
     if new_participants:
-        logger.info(f"New sessions detected: {new_participants}")
+        logger.info(f"New participants detected: {new_participants}")
         return current_participants, list(new_participants)
     
     return current_participants, []
@@ -154,22 +154,12 @@ def run_bot(config: Config) -> None:
                 if new_participant_ids:
                     participants = meet_client.list_participants(conference_name)
                     participant_map = {p.name: p for p in participants}
-                    sessions = meet_client.list_participant_sessions(conference_name)
                     
-                    for session_id in new_participant_ids:
-                        participant_name = None
-                        for p in participants:
-                            if p.name and session_id.startswith(p.name):
-                                participant_name = p.name
-                                break
+                    for participant_id in new_participant_ids:
+                        participant = participant_map.get(participant_id)
+                        display_name = participant.display_name if participant else "Someone"
                         
-                        if participant_name:
-                            participant = participant_map.get(participant_name)
-                            display_name = participant.display_name if participant else "Someone"
-                        else:
-                            display_name = "Someone"
-                        
-                        logger.info(f"New joiner detected: {display_name} (session: {session_id})")
+                        logger.info(f"New joiner detected: {display_name}")
                         
                         message = f"{config.message} Welcome {display_name}!"
                         

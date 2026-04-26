@@ -3,7 +3,7 @@ from pathlib import Path
 from dataclasses import dataclass
 
 
-DEFAULT_POLL_INTERVAL = 30
+DEFAULT_POLL_INTERVAL = 10
 DEFAULT_TOKEN_PATH = Path(__file__).parent / "token.json"
 DEFAULT_CLIENT_SECRET_PATH = Path(__file__).parent / "client_secret.json"
 DEFAULT_SESSION_PATH = Path(__file__).parent / "chrome_session.json"

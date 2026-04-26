@@ -93,7 +93,7 @@ class MeetClient:
     def get_conference_record_by_space(self, space_name: str) -> Optional[ConferenceRecord]:
         """Get active conference record for a space from conferenceRecords list."""
         all_conferences = self.list_conference_records()
-        
+
         for conf in all_conferences:
             if conf.start_time and not conf.end_time:
                 return conf
@@ -125,18 +125,25 @@ class MeetClient:
         Returns:
             List of Participant objects
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         response = self._session.get(
             f"{MEET_API_BASE}/{conference_name}/participants"
         )
+        logger.info(f"participants API status: {response.status_code}")
+        if response.status_code == 200:
+            logger.info(f"participants API response: {response.text[:500]}")
         response.raise_for_status()
         data = response.json()
 
         participants = []
         for p in data.get("participants", []):
+            display = p.get("signedinUser", {}).get("displayName") or p.get("displayName") or p.get("anonymousUser", {}).get("displayName") or "Unknown"
             participant = Participant(
                 name=p.get("name", ""),
-                display_name=p.get("displayName", "Unknown"),
-                email=p.get("signedInUser", {}).get("email") if p.get("signedInUser") else None,
+                display_name=display,
+                email=p.get("signedinUser", {}).get("email") if p.get("signedinUser") else None,
                 joined_time=p.get("earliestStartTime"),
                 ended_time=p.get("latestEndTime"),
             )
@@ -162,15 +169,36 @@ class MeetClient:
         return {p.name for p in participants if p.name}
 
     def list_participant_sessions(self, conference_name: str) -> list[dict]:
-        """List all participant sessions - each session = one device/session."""
-        response = self._session.get(
-            f"{MEET_API_BASE}/{conference_name}/participantSessions"
-        )
-        if response.status_code == 404:
-            return []
-        response.raise_for_status()
-        data = response.json()
-        return data.get("participantSessions", [])
+        """List all participant sessions for each participant in the conference."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        all_sessions = []
+
+        participants = self.list_participants(conference_name)
+
+        for participant in participants:
+            parts = participant.name.split("/participants/")
+            if len(parts) < 2:
+                continue
+
+            participant_id = parts[1]
+            parent = f"{conference_name}/participants/{participant_id}"
+
+            response = self._session.get(
+                f"{MEET_API_BASE}/{parent}/participantSessions"
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                sessions = data.get("participantSessions", [])
+                for s in sessions:
+                    s["participant_name"] = participant.name
+                    s["display_name"] = participant.display_name
+                all_sessions.extend(sessions)
+                logger.info(f"Sessions for {participant.display_name}: {len(sessions)}")
+
+        return all_sessions
 
     def get_all_participant_session_ids(self, conference_name: str) -> set[str]:
         """Get ALL participant session IDs (including ended sessions)."""

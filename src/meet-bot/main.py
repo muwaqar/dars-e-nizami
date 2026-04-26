@@ -67,22 +67,21 @@ def poll_participants(
 ) -> tuple[set[str], list[str]]:
     """
     Poll for new participant sessions.
-    Uses sessions so same user joining from different device is detected as new.
-    
-    Returns:
-        Tuple of (updated session set, list of new session IDs)
     """
-    logger.info("Calling API to get participant sessions...")
-    current_participants = meet_client.get_all_participant_session_ids(conference_name)
-    logger.info(f"Got sessions: {current_participants}")
+    import logging
+    logger = logging.getLogger(__name__)
     
-    new_participants = current_participants - known_participants
+    logger.info("Calling API to get participant sessions...")
+    all_sessions = meet_client.get_all_participant_session_ids(conference_name)
+    logger.info(f"All session IDs: {all_sessions}")
+    
+    new_participants = all_sessions - known_participants
     
     if new_participants:
         logger.info(f"New sessions detected: {new_participants}")
-        return current_participants, list(new_participants)
+        return all_sessions, list(new_participants)
     
-    return current_participants, []
+    return all_sessions, []
 
 
 def run_bot(config: Config) -> None:
@@ -153,28 +152,13 @@ def run_bot(config: Config) -> None:
                 logger.info(f"Current: {current_participants}, Known: {known_participants}, New: {new_participant_ids}")
                 
                 if new_participant_ids:
-                    participants = meet_client.list_participants(conference_name)
-                    participant_map = {p.name: p for p in participants}
+                    logger.info("New joiner detected")
                     
-                    for session_id in new_participant_ids:
-                        display_name = "Someone"
-                        
-                        if "/participantSessions/" in session_id:
-                            parts = session_id.split("/participantSessions/")
-                            participant_id = parts[0]
-                            participant = participant_map.get(participant_id)
-                            if participant:
-                                display_name = participant.display_name
-                        
-                        logger.info(f"New joiner detected: {display_name}")
-                        
-                        message = f"{config.message} Welcome {display_name}!"
-                        
-                        success = browser.send_chat_message(message)
-                        if success:
-                            logger.info(f"Sent welcome message to {display_name}")
-                        else:
-                            logger.warning(f"Failed to send message to {display_name}")
+                    success = browser.send_chat_message(config.message)
+                    if success:
+                        logger.info(f"Sent welcome message")
+                    else:
+                        logger.warning(f"Failed to send message")
                     
                     known_participants = current_participants
                 

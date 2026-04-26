@@ -268,6 +268,22 @@ class MeetBrowser:
 
     def _open_chat_panel(self) -> None:
         """Open the chat panel if not already open."""
+        chat_input_selectors = [
+            'textarea[aria-label="Send a message to everyone"]',
+            'textarea[aria-label="Chat, @mentions"]',
+            'textarea[placeholder*="Send a message"]',
+            'div[contenteditable="true"][role="textbox"]',
+        ]
+        
+        for selector in chat_input_selectors:
+            try:
+                if self.page.wait_for_selector(selector, timeout=500):
+                    logger.debug("Chat input already visible, panel is open")
+                    return
+            except PlaywrightTimeout:
+                continue
+        
+        logger.debug("Looking for chat button...")
         chat_button_selectors = [
             'button[aria-label="Open chat"]',
             'button[aria-label="Chat"]',
@@ -280,30 +296,14 @@ class MeetBrowser:
             try:
                 chat_button = self.page.wait_for_selector(selector, timeout=2000)
                 if chat_button:
+                    logger.debug(f"Found chat button with: {selector}")
                     chat_button.click()
                     time.sleep(1)
                     return
             except PlaywrightTimeout:
                 continue
-
-    def wait_for_meeting_end(self, timeout: int = 300000) -> bool:
-        """
-        Wait for the meeting to end.
-
-        Args:
-            timeout: Timeout in milliseconds (default: 5 minutes)
-
-        Returns:
-            True if meeting ended, False if timeout
-        """
-        try:
-            self.page.wait_for_selector(
-                'text="You have left the meeting"',
-                timeout=timeout,
-            )
-            return True
-        except PlaywrightTimeout:
-            return False
+        
+        logger.debug("No chat button found")
 
     def is_in_meeting(self) -> bool:
         """Check if still in the meeting."""

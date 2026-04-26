@@ -71,14 +71,14 @@ def poll_participants(
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info("Calling API to get participant sessions...")
+    logger.debug("Calling API to get participant sessions...")
     all_sessions = meet_client.get_all_participant_session_ids(conference_name)
-    logger.info(f"All session IDs: {all_sessions}")
+    logger.debug(f"All session IDs: {all_sessions}")
     
     new_participants = all_sessions - known_participants
     
     if new_participants:
-        logger.info(f"New sessions detected: {new_participants}")
+        logger.debug(f"New sessions detected: {new_participants}")
         return all_sessions, list(new_participants)
     
     return all_sessions, []
@@ -131,17 +131,17 @@ def run_bot(config: Config) -> None:
         conference_name = wait_for_conference_start(meet_client, space_name, timeout=60)
         
         initial_participants = meet_client.get_all_participant_session_ids(conference_name)
-        logger.info(f"Initial sessions: {initial_participants}")
+        logger.debug(f"Initial sessions: {initial_participants}")
         known_participants = initial_participants.copy()
         
-        logger.info("Sending initial welcome message...")
+        logger.info("Sending initial message...")
         browser.send_chat_message(config.message)
         
-        logger.info(f"Starting polling loop (interval: {config.poll_interval}s)")
+        logger.debug(f"Starting polling loop (interval: {config.poll_interval}s)")
         
         while True:
             try:
-                logger.info("Polling for participants...")
+                logger.debug("Polling for participants...")
                 current_participants, new_participant_ids = poll_participants(
                     meet_client,
                     conference_name,
@@ -149,22 +149,22 @@ def run_bot(config: Config) -> None:
                     config.poll_interval,
                 )
                 
-                logger.info(f"Current: {current_participants}, Known: {known_participants}, New: {new_participant_ids}")
-                
                 if new_participant_ids:
-                    logger.info("New joiner detected")
+                    for session_id in new_participant_ids:
+                        session_data = next((s for s in meet_client.list_participant_sessions(conference_name) if s.get("name") == session_id), None)
+                        name = session_data.get("display_name", "Unknown") if session_data else "Unknown"
+                        logger.info(f"New participant joined: {name}")
                     
                     success = browser.send_chat_message(config.message)
                     if success:
-                        logger.info(f"Sent welcome message")
+                        logger.info(f"Sent message: {config.message}")
                     else:
                         logger.warning(f"Failed to send message")
                     
                     known_participants = current_participants
                 
-                logger.info("Checking if still in meeting...")
+                logger.debug("Checking if still in meeting...")
                 in_meeting = browser.is_in_meeting()
-                logger.info(f"In meeting: {in_meeting}")
                 
                 if not in_meeting:
                     logger.info("Bot has left the meeting")
@@ -172,11 +172,10 @@ def run_bot(config: Config) -> None:
                     
             except Exception as e:
                 logger.error(f"Error in polling loop: {e}")
-                logger.info("Continuing after error...")
+                logger.debug("Continuing after error...")
             
-            logger.info(f"Sleeping for {config.poll_interval}s...")
+            logger.debug(f"Sleeping for {config.poll_interval}s...")
             time.sleep(config.poll_interval)
-            logger.info("Woke up, starting next poll...")
     
     logger.info("Bot stopped")
 

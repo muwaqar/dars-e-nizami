@@ -131,9 +131,9 @@ class MeetClient:
         response = self._session.get(
             f"{MEET_API_BASE}/{conference_name}/participants"
         )
-        logger.info(f"participants API status: {response.status_code}")
+        logger.debug(f"participants API status: {response.status_code}")
         if response.status_code == 200:
-            logger.info(f"participants API response: {response.text[:500]}")
+            logger.debug(f"participants API response: {response.text[:500]}")
         response.raise_for_status()
         data = response.json()
 
@@ -196,7 +196,7 @@ class MeetClient:
                     s["participant_name"] = participant.name
                     s["display_name"] = participant.display_name
                 all_sessions.extend(sessions)
-                logger.info(f"Sessions for {participant.display_name}: {len(sessions)}")
+                logger.debug(f"Sessions for {participant.display_name}: {len(sessions)}")
 
         return all_sessions
 

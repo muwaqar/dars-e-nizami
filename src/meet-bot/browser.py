@@ -17,16 +17,23 @@ class MeetBrowser:
         self.playwright = None
         self.browser: Browser = None
         self.page: Page = None
+        self._new_participant_count = 0
 
     def __enter__(self):
         self.playwright = sync_playwright().start()
+        launch_args = [
+            "--disable-blink-features=AutomationControlled",
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+            "--allow-file-access-from-files",
+        ]
+        
+        if self.headless:
+            launch_args.append("--headless=new")
+        
         self.browser = self.playwright.chromium.launch(
             headless=self.headless,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--use-fake-ui-for-media-stream",
-                "--use-fake-device-for-media-stream",
-            ],
+            args=launch_args,
         )
         context_options = {}
         if self.storage_state:
@@ -36,10 +43,11 @@ class MeetBrowser:
             **context_options,
             viewport={"width": 1280, "height": 720},
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            permissions=["geolocation"],
+            permissions=["camera", "microphone", "geolocation"],
         )
         
         self.context.clear_permissions()
+        self.context.grant_permissions(["camera", "microphone"])
         
         self.page = self.context.new_page()
         
@@ -69,6 +77,7 @@ class MeetBrowser:
         if not self.debug:
             return
         try:
+            name = name.replace("{n}", str(self._new_participant_count))
             self.page.screenshot(path=f"debug_{name}.png")
             logger.debug(f"Saved debug_{name}.png")
         except Exception:
@@ -229,6 +238,7 @@ class MeetBrowser:
         """
         try:
             self._open_chat_panel()
+            self._debug_screenshot("06_chat_panel_opened")
             time.sleep(2)
 
             chat_selectors = [
@@ -251,12 +261,14 @@ class MeetBrowser:
 
             if not chat_input:
                 logger.error("Could not find chat input")
+                self._debug_screenshot("error_chat_input_not_found")
                 return False
 
             chat_input.fill(message)
             time.sleep(0.5)
 
             chat_input.press("Enter")
+            self._debug_screenshot("07_message_sent")
             logger.info(f"Sent chat message: {message}")
             time.sleep(1)
 

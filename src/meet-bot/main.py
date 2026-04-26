@@ -135,6 +135,7 @@ def run_bot(config: Config) -> None:
         known_participants = initial_participants.copy()
         
         logger.info("Sending initial message...")
+        browser._debug_screenshot("05_before_initial_message")
         browser.send_chat_message(config.message)
         
         logger.debug(f"Starting polling loop (interval: {config.poll_interval}s)")
@@ -150,11 +151,13 @@ def run_bot(config: Config) -> None:
                 )
                 
                 if new_participant_ids:
+                    browser._new_participant_count += 1
                     for session_id in new_participant_ids:
                         session_data = next((s for s in meet_client.list_participant_sessions(conference_name) if s.get("name") == session_id), None)
                         name = session_data.get("display_name", "Unknown") if session_data else "Unknown"
                         logger.info(f"New participant joined: {name}")
                     
+                    browser._debug_screenshot("08_new_participant_{n}")
                     success = browser.send_chat_message(config.message)
                     if success:
                         logger.info(f"Sent message: {config.message}")

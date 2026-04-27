@@ -217,7 +217,8 @@ def main():
             selected_part = part_idx
 
         conducted = questionary.confirm(
-            f"Was '{selected_name}'" + (f" part {selected_part}" if selected_part else "") + " conducted?"
+            f"Was '{selected_name}'" + (f" part {selected_part}" if selected_part else "") + " conducted?",
+            default=True,
         ).ask()
         if conducted is None:
             raise KeyboardInterrupt
@@ -252,6 +253,7 @@ def main():
             confirm = questionary.select(
                 "Action",
                 choices=["Accept", "Edit", "Cancel"],
+                default="Accept",
                 pointer=">",
             ).ask()
 
@@ -309,7 +311,7 @@ def main():
         print("\n[DRY-RUN] No files were created.")
         sys.exit(0)
 
-    confirm = questionary.confirm("Proceed with cutting?").ask()
+    confirm = questionary.confirm("Proceed with cutting?", default=True).ask()
     if confirm is None:
         raise KeyboardInterrupt
     if not confirm:
@@ -322,7 +324,7 @@ def main():
         output_file = dest_dir / seg["filename"]
         if output_file.exists() and not args.overwrite:
             print(f"\n[WARN] File exists: {output_file}")
-            overwrite = questionary.confirm("Overwrite?").ask()
+            overwrite = questionary.confirm("Overwrite?", default=False).ask()
             if overwrite is None:
                 raise KeyboardInterrupt
             if not overwrite:

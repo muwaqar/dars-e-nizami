@@ -60,17 +60,17 @@ def add_minutes(time_str: str, minutes: int) -> str:
     return f"{hours:02d}:{mins:02d}:{secs:02d}"
 
 
-def prompt_choice(prompt_text: str, options: list[str]) -> int | None:
+def prompt_choice(prompt_text: str, options: list[str]) -> int:
     """Interactive arrow key selection menu."""
     if not options:
-        return None
+        raise KeyboardInterrupt
     choice = questionary.select(
         prompt_text,
         choices=options,
         pointer=">",
     ).ask()
     if choice is None:
-        return None
+        raise KeyboardInterrupt
     return options.index(choice) + 1
 
 
@@ -88,6 +88,9 @@ def prompt_time(prompt_text: str, default: str = None) -> str:
             prompt_with_default = prompt_text
 
         time_val = questionary.text(prompt_with_default, **kwargs).ask()
+
+        if time_val is None:
+            raise KeyboardInterrupt
 
         if not time_val and default:
             time_val = default
@@ -204,8 +207,6 @@ def main():
         print(f"\n--- Class {serial_number} ---")
 
         idx = prompt_choice("Select subject", names)
-        if idx is None:
-            continue
         selected_name = names[idx - 1]
         parts = parts_map[selected_name]
         selected_part = None
@@ -213,18 +214,20 @@ def main():
         if parts > 1:
             part_options = [str(i) for i in range(1, parts + 1)]
             part_idx = prompt_choice("Select part", part_options)
-            if part_idx is None:
-                continue
             selected_part = part_idx
 
         conducted = questionary.confirm(
             f"Was '{selected_name}'" + (f" part {selected_part}" if selected_part else "") + " conducted?"
         ).ask()
+        if conducted is None:
+            raise KeyboardInterrupt
 
         if not conducted:
             print(f"  Skipping: {selected_name}" + (f" part {selected_part}" if selected_part else ""))
             serial_number += 1
             more = questionary.confirm("Add another class?").ask()
+            if more is None:
+                raise KeyboardInterrupt
             if not more:
                 break
             continue
@@ -273,6 +276,8 @@ def main():
         serial_number += 1
 
         more = questionary.confirm("Add another class?").ask()
+        if more is None:
+            raise KeyboardInterrupt
         if not more:
             break
 
@@ -285,6 +290,8 @@ def main():
             f"Destination path (e.g., Section-F/{default_path})",
             default=default_path,
         ).ask()
+        if path_prompt is None:
+            raise KeyboardInterrupt
     else:
         path_prompt = args.path
 
@@ -303,6 +310,8 @@ def main():
         sys.exit(0)
 
     confirm = questionary.confirm("Proceed with cutting?").ask()
+    if confirm is None:
+        raise KeyboardInterrupt
     if not confirm:
         print("Cancelled.")
         sys.exit(0)
@@ -314,6 +323,8 @@ def main():
         if output_file.exists() and not args.overwrite:
             print(f"\n[WARN] File exists: {output_file}")
             overwrite = questionary.confirm("Overwrite?").ask()
+            if overwrite is None:
+                raise KeyboardInterrupt
             if not overwrite:
                 print("  Skipping.")
                 continue
@@ -351,4 +362,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\nInterrupted. Exiting.")
+        sys.exit(130)

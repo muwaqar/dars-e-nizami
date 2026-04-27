@@ -194,22 +194,14 @@ def main():
         default_path = today
 
     segments = []
+    serial_number = 1
     last_end = "00:00:00"
     print("\n" + "=" * 60)
     print("Enter segments")
     print("=" * 60)
 
     while True:
-        print(f"\n--- Segment {len(segments) + 1} ---")
-
-        start_time = prompt_time("Start time (HH:MM:SS)", last_end)
-        end_time = prompt_time("End time (HH:MM:SS)", add_minutes(start_time, 30))
-
-        start_secs = get_duration_seconds(start_time)
-        end_secs = get_duration_seconds(end_time)
-        if end_secs <= start_secs:
-            print("Error: End time must be after start time")
-            continue
+        print(f"\n--- Class {serial_number} ---")
 
         idx = prompt_choice("Select subject", names)
         if idx is None:
@@ -225,39 +217,62 @@ def main():
                 continue
             selected_part = part_idx
 
-        if selected_part is not None:
-            filename = f"{len(segments) + 1}. {selected_name} {selected_part}.mp4"
-        else:
-            filename = f"{len(segments) + 1}. {selected_name}.mp4"
-
-        print(f"\n  {start_time} - {end_time} → {filename}")
-
-        confirm = questionary.select(
-            "Action",
-            choices=["Accept", "Edit", "Skip", "Cancel"],
-            pointer=">",
+        conducted = questionary.confirm(
+            f"Was '{selected_name}'" + (f" part {selected_part}" if selected_part else "") + " conducted?"
         ).ask()
 
-        if confirm == "Accept":
-            segments.append(
-                {
-                    "start": start_time,
-                    "end": end_time,
-                    "filename_key": selected_name,
-                    "part": selected_part,
-                    "filename": filename,
-                }
-            )
-            last_end = end_time
-        elif confirm == "Edit":
+        if not conducted:
+            print(f"  Skipping: {selected_name}" + (f" part {selected_part}" if selected_part else ""))
+            serial_number += 1
+            more = questionary.confirm("Add another class?").ask()
+            if not more:
+                break
             continue
-        elif confirm == "Skip":
-            continue
-        elif confirm == "Cancel":
-            print("\nCutting cancelled.")
-            sys.exit(0)
 
-        more = questionary.confirm("Add another segment?").ask()
+        while True:
+            start_time = prompt_time("Start time (HH:MM:SS)", last_end)
+            end_time = prompt_time("End time (HH:MM:SS)", add_minutes(start_time, 30))
+
+            start_secs = get_duration_seconds(start_time)
+            end_secs = get_duration_seconds(end_time)
+            if end_secs <= start_secs:
+                print("Error: End time must be after start time")
+                continue
+
+            if selected_part is not None:
+                filename = f"{serial_number}. {selected_name} {selected_part}.mp4"
+            else:
+                filename = f"{serial_number}. {selected_name}.mp4"
+
+            print(f"\n  {start_time} - {end_time} → {filename}")
+
+            confirm = questionary.select(
+                "Action",
+                choices=["Accept", "Edit", "Cancel"],
+                pointer=">",
+            ).ask()
+
+            if confirm == "Accept":
+                break
+            elif confirm == "Edit":
+                continue
+            elif confirm == "Cancel":
+                print("\nCutting cancelled.")
+                sys.exit(0)
+
+        segments.append(
+            {
+                "start": start_time,
+                "end": end_time,
+                "filename_key": selected_name,
+                "part": selected_part,
+                "filename": filename,
+            }
+        )
+        last_end = end_time
+        serial_number += 1
+
+        more = questionary.confirm("Add another class?").ask()
         if not more:
             break
 

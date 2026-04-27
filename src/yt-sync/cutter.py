@@ -60,6 +60,17 @@ def add_minutes(time_str: str, minutes: int) -> str:
     return f"{hours:02d}:{mins:02d}:{secs:02d}"
 
 
+def get_default_end_time(start_time: str, duration: str) -> str:
+    """Get default end time (start + 30 min), capped at video duration."""
+    proposed = add_minutes(start_time, 30)
+    proposed_secs = get_duration_seconds(proposed)
+    duration_secs = get_duration_seconds(duration)
+
+    if proposed_secs > duration_secs:
+        return duration
+    return proposed
+
+
 def prompt_choice(prompt_text: str, options: list[str]) -> int:
     """Interactive arrow key selection menu."""
     if not options:
@@ -188,6 +199,7 @@ def main():
 
     duration = get_duration(str(input_file))
     print(f"Duration: {duration}")
+    duration_seconds = get_duration_seconds(duration)
 
     names, parts_map = get_playlist_items()
 
@@ -235,12 +247,18 @@ def main():
 
         while True:
             start_time = prompt_time("Start time (HH:MM:SS)", last_end)
-            end_time = prompt_time("End time (HH:MM:SS)", add_minutes(start_time, 30))
+            end_time = prompt_time("End time (HH:MM:SS)", get_default_end_time(start_time, duration))
 
             start_secs = get_duration_seconds(start_time)
             end_secs = get_duration_seconds(end_time)
+            if start_secs >= duration_seconds:
+                print(f"Error: Start time must be before video ends ({duration})")
+                continue
             if end_secs <= start_secs:
                 print("Error: End time must be after start time")
+                continue
+            if end_secs > duration_seconds:
+                print(f"Error: End time cannot exceed video duration ({duration})")
                 continue
 
             if selected_part is not None:

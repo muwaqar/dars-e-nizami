@@ -67,6 +67,7 @@ def sync_group(
         get_yt_video_prefix,
         get_yt_playlist_sort,
         get_part_from_filename,
+        get_serial_from_filename,
         generate_title,
     )
 
@@ -90,6 +91,31 @@ def sync_group(
     }
     interacted_ids = []
 
+    # Group files by (playlist_filename_key, part, date) to detect multiples
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for file_path, date_str in files:
+        filename = file_path.name
+        playlist = find_playlist_for_file(filename)
+        if playlist is None:
+            continue
+        part = get_part_from_filename(filename)
+        filename_key = playlist.get("filename_key", "")
+        groups[(filename_key, part, date_str)].append((file_path, date_str))
+
+    # Build sequence info for files in groups with multiple entries
+    sequence_map = {}  # (file_path, date_str) -> (sequence, total)
+    for (filename_key, part, date_str), group_files in groups.items():
+        if len(group_files) > 1:
+            # Sort by serial number
+            group_files_sorted = sorted(
+                group_files,
+                key=lambda x: (get_serial_from_filename(x[0]) or 0, x[0].name)
+            )
+            total = len(group_files_sorted)
+            for idx, (file_path, ds) in enumerate(group_files_sorted, start=1):
+                sequence_map[(file_path, ds)] = (idx, total)
+
     for file_path, date_str in files:
         filename = file_path.name
 
@@ -104,7 +130,12 @@ def sync_group(
         sort_order = get_yt_playlist_sort(playlist)
         part = get_part_from_filename(filename)
 
-        title = generate_title(yt_prefix, part, date_str)
+        # Get sequence info if this file is part of a multiple-class group
+        seq_info = sequence_map.get((file_path, date_str))
+        sequence = seq_info[0] if seq_info else None
+        total = seq_info[1] if seq_info else None
+
+        title = generate_title(yt_prefix, part, date_str, sequence, total)
 
         if verbose:
             print(f"\nProcessing: {filename}")

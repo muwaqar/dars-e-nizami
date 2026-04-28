@@ -394,7 +394,7 @@ class YouTubeClient:
         return moves
 
     def ensure_videos_processed(
-        self, video_ids: list[str], timeout: int = 300, interval: int = 10
+        self, video_ids: list[str], timeout: int = 900, interval: int = 10
     ) -> bool:
         """
         Wait for multiple videos to finish processing.

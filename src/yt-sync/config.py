@@ -159,25 +159,43 @@ def get_part_from_filename(filename: str) -> str | None:
         return None
 
 
-def generate_title(yt_video_prefix: str, part: str | None, date: str) -> str:
+def get_serial_from_filename(filename: str | Path) -> int | None:
+    """Extract serial number from filename. Returns None if not found."""
+    name = Path(filename).name.removesuffix(".mp4")
+    match = re.match(r"^(\d+)\.\s+", name)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def generate_title(yt_video_prefix: str, part: str | None, date: str, sequence: int = None, total: int = None) -> str:
     """
-    Generate YouTube title from prefix, part, and date.
+    Generate YouTube title from prefix, part, date, and optional sequence.
 
     Examples:
         ('Sharh Jami', '1', '2026-04-11') → 'Sharh Jami 1: 2026-04-11'
         ('Maqamaat', None, '2026-04-11')  → 'Maqamaat: 2026-04-11'
+        ('Sharh Jami', '1', '2026-04-11', 1, 2) → 'Sharh Jami 1: 2026-04-11 (1/2)'
     """
     if part:
-        return f"{yt_video_prefix} {part}: {date}"
+        base = f"{yt_video_prefix} {part}: {date}"
     else:
-        return f"{yt_video_prefix}: {date}"
+        base = f"{yt_video_prefix}: {date}"
+
+    if sequence and total and total > 1:
+        return f"{base} ({sequence}/{total})"
+    return base
 
 
 def get_prefix_from_title(title: str) -> str:
     """
     Extract prefix from a YouTube title like 'Sharh Jami 1: 2026-04-11'.
     Returns 'Sharh Jami' (without the part number).
+    Handles sequence suffix like '(1/2)'.
     """
+    # Remove sequence suffix like (1/2) if present
+    title = re.sub(r"\s*\(\d+/\d+\)$", "", title)
+
     match = re.match(r"^(.+?)\s*\d*:\s*\d{4}-\d{2}-\d{2}$", title)
     if match:
         prefix = match.group(1).strip()
@@ -190,6 +208,22 @@ def get_prefix_from_title(title: str) -> str:
         return match.group(1).strip()
 
     return title
+
+
+def get_sequence_from_title(title: str) -> tuple[int, int] | None:
+    """
+    Extract sequence number from a YouTube title with format like '(1/2)'.
+
+    Returns (sequence, total) or None if no sequence found.
+
+    Examples:
+        'Sharh Jami 1: 2026-04-11 (1/2)' → (1, 2)
+        'Sharh Jami 1: 2026-04-11' → None
+    """
+    match = re.search(r"\((\d+)/(\d+)\)$", title)
+    if match:
+        return (int(match.group(1)), int(match.group(2)))
+    return None
 
 
 def get_part_from_title(title: str) -> str | None:
@@ -223,7 +257,7 @@ def video_sort_key(title: str, sort_order: str = "asc") -> tuple:
     """
     Generate sort key for a video title based on sort_order.
 
-    For 'asc' (default): sorts by part number (asc), then date (asc).
+    For 'asc' (default): sorts by part number (asc), then date (asc), then sequence (asc).
     Videos without part numbers sort last.
 
     For 'desc': sorts by date only (descending).
@@ -242,7 +276,14 @@ def video_sort_key(title: str, sort_order: str = "asc") -> tuple:
     else:
         part_sort = int(part)
 
-    return (part_sort, date)
+    # Get sequence number for sorting (default to 0 if no sequence)
+    sequence = get_sequence_from_title(title)
+    if sequence:
+        seq_sort = sequence[0]
+    else:
+        seq_sort = 0
+
+    return (part_sort, date, seq_sort)
 
 
 def prefix_matches(prefix1: str, prefix2: str) -> bool:

@@ -393,6 +393,61 @@ class YouTubeClient:
         self.clear_cache()
         return moves
 
+    def ensure_videos_processed(
+        self, video_ids: list[str], timeout: int = 300, interval: int = 10
+    ) -> bool:
+        """
+        Wait for multiple videos to finish processing.
+        Polls all videos each iteration (non-blocking per video).
+        Prints progress like "10/12 videos processed".
+        Returns True if all processed, False if any fail/timeout (abort).
+        """
+        if not video_ids:
+            return True
+
+        start = time.time()
+        remaining = set(video_ids)
+        failed = set()
+
+        while time.time() - start < timeout:
+            # Check all remaining videos in this iteration
+            for video_id in list(remaining):
+                try:
+                    response = self.youtube.videos().list(
+                        part="status", id=video_id
+                    ).execute()
+                    items = response.get("items", [])
+                    if items:
+                        status = items[0].get("status", {}).get("uploadStatus")
+                        if status == "processed":
+                            remaining.discard(video_id)
+                        elif status in ("failed", "rejected"):
+                            print(f"\n      [ERROR] Video {video_id}: {status}")
+                            failed.add(video_id)
+                            remaining.discard(video_id)
+                except Exception:
+                    pass  # Retry next iteration
+
+            # Print progress
+            processed_count = len(video_ids) - len(remaining) - len(failed)
+            total = len(video_ids)
+            print(f"    {processed_count}/{total} videos processed...", end="\r")
+
+            # Check completion
+            if not remaining:
+                print(f"\n    {total}/{total} videos processed!")
+                return True
+
+            if failed:
+                print(f"\n    [ABORT] {len(failed)} video(s) failed")
+                return False
+
+            time.sleep(interval)
+
+        # Timeout reached
+        print(f"\n    [ABORT] Timeout waiting for {len(remaining)} video(s)")
+        return False
+
     def clear_cache(self):
         """Clear playlist cache to force refresh."""
         self._playlist_cache.clear()

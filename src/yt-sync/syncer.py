@@ -59,8 +59,8 @@ def sync_group(
     client,
     dry_run: bool,
     verbose: bool = False,
-):
-    """Sync all videos for a group of files in the same directory."""
+) -> tuple[dict, list[str]]:
+    """Sync videos. Returns (stats, interacted_video_ids)."""
     from config import (
         find_playlist_for_file,
         get_yt_playlist_id,
@@ -78,7 +78,7 @@ def sync_group(
             "skipped": 0,
             "errors": 0,
             "would_upload": 0,
-        }
+        }, []
 
     stats = {
         "total": len(files),
@@ -88,6 +88,7 @@ def sync_group(
         "errors": 0,
         "would_upload": 0,
     }
+    interacted_ids = []
 
     for file_path, date_str in files:
         filename = file_path.name
@@ -131,8 +132,11 @@ def sync_group(
         if video:
             print(f"    Found on YouTube, adding to playlist...")
             video_id = video["video_id"]
+            interacted_ids.append(video_id)
         else:
             video_id = client.upload_video(str(file_path), title)
+            if video_id:
+                interacted_ids.append(video_id)
 
         if not video_id:
             print(f"    [ERROR] Upload failed after retries")
@@ -159,7 +163,7 @@ def sync_group(
                 print(f"    [ERROR] Failed to add to playlist")
             stats["errors"] += 1
 
-    return stats
+    return stats, interacted_ids
 
 
 def resolve_credentials(credentials_path: str = None) -> str:
@@ -263,12 +267,34 @@ def main():
         "would_upload": 0,
     }
 
+    all_interacted_ids = []
+
     for dir_path, files in sorted(groups.items()):
         dir_display = dir_path.relative_to(recordings_path)
         print(f"\n=== Syncing {dir_display} ===")
-        stats = sync_group(files, client, args.dry_run, args.verbose)
+        stats, interacted_ids = sync_group(files, client, args.dry_run, args.verbose)
         for k in total_stats:
             total_stats[k] += stats[k]
+        all_interacted_ids.extend(interacted_ids)
+
+    # Wait for video processing, abort if failed
+    if not args.dry_run and all_interacted_ids:
+        print("\n" + "=" * 60)
+        print("=== Waiting for Video Processing ===")
+        print("=" * 60)
+        success = client.ensure_videos_processed(all_interacted_ids)
+
+        if not success:
+            print("\n    [ABORT] Skipping playlist ordering")
+            print("\n" + "=" * 60)
+            print("=== Summary ===")
+            print("=" * 60)
+            print(f"Total:         {total_stats['total']:>5}")
+            print(f"Uploaded:      {total_stats['uploaded']:>5}")
+            print(f"Added (exist): {total_stats['added']:>5}")
+            print(f"Skipped:       {total_stats['skipped']:>5}")
+            print(f"Errors:        {total_stats['errors']:>5}")
+            return
 
     print("\n" + "=" * 60)
     print("=== Fixing playlist ordering ===")

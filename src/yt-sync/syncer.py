@@ -144,7 +144,11 @@ def sync_group(
 
         if client.video_exists_in_playlist(playlist_id, title):
             if verbose:
-                print(f"  [INFO] Skipping (already exists in playlist)")
+                print(f"  [INFO] Already exists in playlist, checking processing status...")
+            # Still add to interacted_ids so processing check waits for it
+            video = client.find_video_on_youtube(title)
+            if video:
+                interacted_ids.append(video["video_id"])
             stats["skipped"] += 1
             continue
 
